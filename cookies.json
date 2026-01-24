@@ -1,0 +1,13 @@
+[
+  {
+    "domain": ".youtube.com",
+    "expirationDate": 1769999999,
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "VISITOR_INFO1_LIVE",
+    "path": "/",
+    "secure": true,
+    "session": false,
+    "value": "abc123"
+  }
+]
