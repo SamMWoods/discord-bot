@@ -12,6 +12,38 @@ export const data = new SlashCommandBuilder()
     opt.setName("url").setDescription("A URL or search query").setRequired(true)
   );
 
+function normalizeYouTubeUrl(url: string) {
+  try {
+    const u = new URL(url);
+
+    // Only touch YouTube links
+    const host = u.hostname.replace(/^www\./, "");
+    const isYouTube =
+      host === "youtube.com" ||
+      host === "m.youtube.com" ||
+      host === "music.youtube.com" ||
+      host === "youtu.be";
+
+    if (!isYouTube) return url;
+
+    // If it's a YouTube "Mix / radio" link, strip playlist/radio params
+    const list = u.searchParams.get("list");
+    const isMix = (list?.startsWith("RD") ?? false) || u.searchParams.has("start_radio");
+
+    if (isMix) {
+      u.searchParams.delete("list");
+      u.searchParams.delete("start_radio");
+      u.searchParams.delete("index");
+      u.searchParams.delete("feature");
+      return u.toString();
+    }
+
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
@@ -25,10 +57,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   const input = interaction.options.getString("url", true).trim();
 
-  const query =
+  const normalized =
     input.startsWith("http://") || input.startsWith("https://")
-      ? input
-      : `ytsearch:${input}`;
+      ? normalizeYouTubeUrl(input)
+      : input;
+
+  const query =
+    normalized.startsWith("http://") || normalized.startsWith("https://")
+      ? normalized
+      : `ytsearch:${normalized}`;
 
   const player = lavalink.createPlayer({
     guildId: interaction.guildId,
@@ -40,7 +77,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   await player.connect();
 
-  // ✅ search is on the player, not the manager
   const res = await player.search({ query }, interaction.user);
   const track = res?.tracks?.[0];
 
@@ -49,18 +85,17 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  // add to queue
+  const wasPlaying = player.playing;
+
   await player.queue.add(track);
 
-  // only start playback if nothing is playing
-  if (!player.playing) {
+  if (!wasPlaying) {
     await player.play();
   }
 
-  // 👇 PUT IT HERE (last thing before function ends)
-  if (player.playing) {
-    await interaction.editReply(`➕ Added to queue: **${track.info.title}**`);
-  } else {
-    await interaction.editReply(`▶️ Now playing: **${track.info.title}**`);
-  }
+  await interaction.editReply(
+    wasPlaying
+      ? `➕ Added to queue: **${track.info.title}**`
+      : `▶️ Now playing: **${track.info.title}**`
+  );
 }
