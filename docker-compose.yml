@@ -7,6 +7,8 @@ services:
       - "2333:2333"
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
+    env_file:
+      - ./.env
 
   bot:
     image: node:22
@@ -20,9 +22,9 @@ services:
     depends_on:
       - lavalink
     command: >
-      sh -c "
+      sh -lc "
       echo 'Waiting for Lavalink...';
-      until curl -s -H 'Authorization: '"$$LAVALINK_PASSWORD"'' http://lavalink:'"$$LAVALINK_PORT"'/v4/info >/dev/null; do
+      until curl -sf -H \"Authorization: $LAVALINK_PASSWORD\" http://lavalink:$LAVALINK_PORT/v4/info >/dev/null; do
         sleep 1;
       done;
       echo 'Lavalink is up!';
@@ -30,3 +32,4 @@ services:
       npm run build;
       npm run start;
       "
+
