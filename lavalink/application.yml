@@ -2,14 +2,9 @@ server:
   port: 2333
 
 lavalink:
-  plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.16.0"
-      repository: "https://maven.lavalink.dev/releases"
-
   server:
-    password: "youshallnotpass"
+    password: ${LAVALINK_PASSWORD}
     sources:
-      # IMPORTANT: disable built-in youtube; plugin handles YouTube
       youtube: false
       soundcloud: true
       bandcamp: true
@@ -17,6 +12,10 @@ lavalink:
       vimeo: true
       http: true
       local: false
+
+  plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.16.0"
+      repository: "https://maven.lavalink.dev/releases"
 
 logging:
   level:
