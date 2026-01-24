@@ -12,35 +12,44 @@ export const data = new SlashCommandBuilder()
     opt.setName("url").setDescription("A URL or search query").setRequired(true)
   );
 
-function normalizeYouTubeUrl(url: string) {
+function normalizeYouTubeUrl(input: string) {
   try {
-    const u = new URL(url);
+    const u = new URL(input);
 
-    // Only touch YouTube links
     const host = u.hostname.replace(/^www\./, "");
     const isYouTube =
       host === "youtube.com" ||
       host === "m.youtube.com" ||
-      host === "music.youtube.com" ||
+      host === "music.youtube.cof" ||
       host === "youtu.be";
 
-    if (!isYouTube) return url;
+    if (!isYouTube) return input;
 
-    // If it's a YouTube "Mix / radio" link, strip playlist/radio params
-    const list = u.searchParams.get("list");
-    const isMix = (list?.startsWith("RD") ?? false) || u.searchParams.has("start_radio");
+    // Extract video id from youtu.be/<id>
+    let videoId = u.searchParams.get("v") ?? "";
 
-    if (isMix) {
-      u.searchParams.delete("list");
-      u.searchParams.delete("start_radio");
-      u.searchParams.delete("index");
-      u.searchParams.delete("feature");
-      return u.toString();
+    if (host === "youtu.be") {
+      videoId = u.pathname.replace("/", "");
     }
 
-    return url;
+    const list = u.searchParams.get("list") ?? "";
+    const isMix =
+      list.startsWith("RD") || list.startsWith("RDMM") || list.startsWith("RDAMVM") || u.searchParams.has("start_radio");
+
+    // If it's a Mix link, ALWAYS return plain watch URL
+    if (isMix && videoId) {
+      return `https://www.youtube.com/watch?v=${videoId}`;
+    }
+
+    // Otherwise: still normalize to canonical watch URL if we have v
+    if (videoId) {
+      return `https://www.youtube.com/watch?v=${videoId}`;
+    }
+
+    // If no video id, leave it alone (could be playlist/search/etc)
+    return input;
   } catch {
-    return url;
+    return input;
   }
 }
 
