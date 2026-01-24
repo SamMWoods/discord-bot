@@ -4,14 +4,14 @@ server:
 lavalink:
   server:
     password: ${LAVALINK_PASSWORD}
-    sources:
-      youtube: false
-      soundcloud: true
-      bandcamp: true
-      twitch: true
-      vimeo: true
-      http: true
-      local: false
+  sources:
+    youtube: false
+    soundcloud: true
+    bandcamp: true
+    twitch: true
+    vimeo: true
+    http: true
+    local: false
 
   plugins:
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.16.0"
