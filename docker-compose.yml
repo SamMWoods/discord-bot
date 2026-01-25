@@ -1,35 +1,18 @@
 services:
   lavalink:
-    image: ghcr.io/lavalink-devs/lavalink:latest
+    image: ghcr.io/lavalink-devs/lavalink:4
     container_name: lavalink
     restart: unless-stopped
     ports:
       - "2333:2333"
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
-    env_file:
-      - ./.env
 
   bot:
-    image: node:22
-    container_name: minions-bot
+    build: .
+    container_name: minionsbot
     restart: unless-stopped
-    working_dir: /app
-    volumes:
-      - ./:/app
     env_file:
-      - ./.env
+      - .env
     depends_on:
       - lavalink
-    command: >
-      sh -lc "
-      echo 'Waiting for Lavalink...';
-      until curl -sf -H \"Authorization: $LAVALINK_PASSWORD\" http://lavalink:$LAVALINK_PORT/v4/info >/dev/null; do
-        sleep 1;
-      done;
-      echo 'Lavalink is up!';
-      npm ci || npm install;
-      npm run build;
-      npm run start;
-      "
-

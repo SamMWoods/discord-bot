@@ -18,3 +18,15 @@ export const lavalink = new LavalinkManager({
     client.guilds.cache.get(guildId)?.shard?.send(payload);
   },
 });
+
+lavalink.nodeManager.on("error", (node, error) => {
+  console.error(`[Lavalink] Node ${node.id} error:`, error);
+});
+
+lavalink.nodeManager.on("connect", (node) => {
+  console.log(`[Lavalink] Node ${node.id} connected`);
+});
+
+lavalink.nodeManager.on("disconnect", (node, reason) => {
+  console.warn(`[Lavalink] Node ${node.id} disconnected:`, reason);
+});
