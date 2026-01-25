@@ -10,7 +10,7 @@ services:
     env_file:
       - .env
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:2333/v4/info >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- --header='Authorization: youshallnotpass' http://localhost:2333/v4/info >/dev/null 2>&1 || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 30
