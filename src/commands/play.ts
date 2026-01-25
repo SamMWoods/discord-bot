@@ -95,14 +95,76 @@ async function getSpotifyOEmbedTitle(spotifyUrl: string): Promise<string | null>
  * YouTube is often better with "Artist - Song".
  */
 function normalizeSpotifyTitleForSearch(oembedTitle: string) {
-  // Most commonly "Track - Artist"
-  const parts = oembedTitle.split(" - ").map((p) => p.trim()).filter(Boolean);
+  const parts = oembedTitle
+    .split(" - ")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
   if (parts.length >= 2) {
     const track = parts[0];
     const artist = parts.slice(1).join(" - ");
     return `${artist} - ${track}`;
   }
+
   return oembedTitle;
+}
+
+/**
+ * Removes noisy tokens that often hurt YouTube matching.
+ * Adds "audio" when searching to prefer clean uploads.
+ */
+function cleanSearchQuery(input: string) {
+  return input
+    .replace(/\(.*?\)/g, " ") // (Remastered 2019)
+    .replace(/\[.*?\]/g, " ") // [Official Video]
+    .replace(/official video/gi, " ")
+    .replace(/official music video/gi, " ")
+    .replace(/lyrics?/gi, " ")
+    .replace(/\bmv\b/gi, " ")
+    .replace(/remaster(ed)?/gi, " ")
+    .replace(/topic/gi, " ")
+    .replace(/visualizer/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+type SourceUsed = "youtube" | "soundcloud" | "spotify_to_youtube" | "unknown";
+
+function sourceBadge(source: SourceUsed) {
+  switch (source) {
+    case "spotify_to_youtube":
+      return "🟢 Spotify → 🔴 YouTube";
+    case "soundcloud":
+      return "🟠 SoundCloud";
+    case "youtube":
+      return "🔴 YouTube";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Simple in-memory cache for Spotify oEmbed titles.
+ * Note: resets when your bot process restarts.
+ */
+const spotifyTitleCache = new Map<string, { title: string; expires: number }>();
+const SPOTIFY_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+
+function getCachedSpotifyTitle(url: string) {
+  const entry = spotifyTitleCache.get(url);
+  if (!entry) return null;
+  if (Date.now() > entry.expires) {
+    spotifyTitleCache.delete(url);
+    return null;
+  }
+  return entry.title;
+}
+
+function setCachedSpotifyTitle(url: string, title: string) {
+  spotifyTitleCache.set(url, {
+    title,
+    expires: Date.now() + SPOTIFY_CACHE_TTL_MS,
+  });
 }
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -122,27 +184,34 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // Normalize YouTube URLs early (if it is a YouTube url)
     let input = isUrl(raw) ? normalizeYouTubeUrl(raw) : raw;
 
-    // If Spotify link, convert to a YouTube search query by resolving title from oEmbed
-    let forcedSourceLabel: string | null = null;
+    let sourceUsed: SourceUsed = isUrl(input) ? "unknown" : "youtube";
     let spotifyResolvedTitle: string | null = null;
 
+    // If Spotify link, convert to a YouTube search query by resolving title from oEmbed
     if (isUrl(raw) && isSpotifyLink(raw)) {
-      spotifyResolvedTitle = await getSpotifyOEmbedTitle(raw);
+      const cached = getCachedSpotifyTitle(raw);
+      spotifyResolvedTitle = cached ?? (await getSpotifyOEmbedTitle(raw));
+
+      if (spotifyResolvedTitle && !cached) {
+        setCachedSpotifyTitle(raw, spotifyResolvedTitle);
+      }
 
       if (spotifyResolvedTitle) {
-        input = normalizeSpotifyTitleForSearch(spotifyResolvedTitle);
-        forcedSourceLabel = "Spotify→YouTube";
-      } else {
-        // If we can't resolve, we keep `input` as the raw URL.
-        // Your lavalink may fail to load Spotify URLs (depending on plugins),
-        // but we don't hard-fail here so your existing fallbacks still run.
+        const normalized = normalizeSpotifyTitleForSearch(spotifyResolvedTitle);
+        input = cleanSearchQuery(normalized);
+        sourceUsed = "spotify_to_youtube";
       }
+    }
+
+    // If it's a text query, clean it for better matching too
+    if (!isUrl(input)) {
+      input = cleanSearchQuery(input);
     }
 
     // Default behavior:
     // - If URL: use it directly
     // - If text: try YouTube search first (nice UX), then fallback to SoundCloud if it fails
-    const primaryQuery = isUrl(input) ? input : `ytsearch:${input}`;
+    const primaryQuery = isUrl(input) ? input : `ytsearch:${input} audio`;
 
     const player = lavalink.createPlayer({
       guildId: interaction.guildId,
@@ -157,22 +226,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // 1) Try primary
     let res = await player.search({ query: primaryQuery }, interaction.user);
     let track = res?.tracks?.[0];
-    let usedFallback = false;
-
-    // If we started from Spotify but couldn't resolve oEmbed title, we can still try:
-    // - Try extracting something meaningful and searching YouTube anyway.
-    // This helps when oEmbed is down/blocked.
-    if (!track && isUrl(raw) && isSpotifyLink(raw)) {
-      const fallbackQuery = spotifyResolvedTitle
-        ? `ytsearch:${normalizeSpotifyTitleForSearch(spotifyResolvedTitle)}`
-        : null;
-
-      if (fallbackQuery) {
-        res = await player.search({ query: fallbackQuery }, interaction.user);
-        track = res?.tracks?.[0];
-        if (track) forcedSourceLabel = "Spotify→YouTube";
-      }
-    }
 
     // 2) If YouTube URL failed, try ytsearch using the video id (more reliable than direct URL)
     if (!track && isUrl(input) && isYouTubeLink(input)) {
@@ -190,23 +243,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         res = await player.search({ query: `ytsearch:${ytId}` }, interaction.user);
         track = res?.tracks?.[0];
       }
-
-      // 3) If still nothing, fallback to SoundCloud search using the user text (NOT the URL)
-      if (!track) {
-        res = await player.search(
-          { query: `scsearch:${ytId || "lose my mind"}` },
-          interaction.user
-        );
-        track = res?.tracks?.[0];
-        usedFallback = !!track;
-      }
     }
 
-    // 4) If text query ytsearch fails, fallback to SoundCloud
-    if (!track && primaryQuery.startsWith("ytsearch:")) {
+    // 3) If text query ytsearch fails, fallback to SoundCloud
+    if (!track && !isUrl(input)) {
       res = await player.search({ query: `scsearch:${input}` }, interaction.user);
       track = res?.tracks?.[0];
-      usedFallback = !!track;
+      if (track) sourceUsed = "soundcloud";
+    }
+
+    // 4) If still nothing and we started from Spotify but oEmbed failed, last-ditch try:
+    //    search YouTube using the Spotify URL token (sometimes users paste weird variants)
+    if (!track && isSpotifyLink(raw) && !spotifyResolvedTitle) {
+      res = await player.search({ query: `ytsearch:${raw}` }, interaction.user);
+      track = res?.tracks?.[0];
+      if (track) sourceUsed = "spotify_to_youtube";
     }
 
     if (!track) {
@@ -228,17 +279,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     await player.queue.add(track);
 
-    const sourceSuffix = forcedSourceLabel
-      ? ` *(${forcedSourceLabel})*`
-      : usedFallback
-      ? " *(via SoundCloud)*"
-      : "";
+    const badge = sourceBadge(sourceUsed);
+    const suffix = badge ? `\n${badge}` : "";
 
     if (!wasPlaying) {
       await player.play();
-      await interaction.editReply(`▶️ Now playing: **${track.info.title}**${sourceSuffix}`);
+      await interaction.editReply(`▶️ Now playing: **${track.info.title}**${suffix}`);
     } else {
-      await interaction.editReply(`➕ Added to queue: **${track.info.title}**${sourceSuffix}`);
+      await interaction.editReply(`➕ Added to queue: **${track.info.title}**${suffix}`);
     }
   } catch (err) {
     console.error("Play command error:", err);
