@@ -34,6 +34,7 @@ plugins:
     # OAuth-compatible clients FIRST
     # (ANDROID is the most reliable)
     clients:
+      - TVHTML5EMBEDDED
       - ANDROID
       - WEB
       - IOS
