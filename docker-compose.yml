@@ -7,6 +7,8 @@ services:
       - "2333:2333"
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
+    env_file:
+      - .env
 
   bot:
     build: .
