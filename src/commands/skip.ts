@@ -46,6 +46,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return;
     }
 
+    console.log("QUEUE DEBUG", {
+      queue: player.queue,
+      keys: player.queue ? Object.keys(player.queue) : null,
+    });
+
     // Optional: ensure same VC
     if (player.voiceChannelId && player.voiceChannelId !== voiceChannel.id) {
       await interaction.editReply("You need to be in the same voice channel as me to skip.");
