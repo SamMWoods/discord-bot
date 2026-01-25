@@ -33,11 +33,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   // ✅ Stop playback safely
-  await player.stop();
-
-  // ✅ Clear queue (if anything is left)
-  player.queue.clear();
-
+  await player.stopPlaying();
   // ✅ Leave voice & destroy player
   await player.disconnect();
   await player.destroy();
