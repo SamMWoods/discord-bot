@@ -6,6 +6,12 @@ lavalink:
     password: "youshallnotpass"
     sources:
       youtube: false
+      soundcloud: true
+      bandcamp: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
 
   plugins:
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.16.0"
@@ -14,13 +20,20 @@ lavalink:
 plugins:
   youtube:
     enabled: true
+    oauth:
+      enabled: true
+
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
 
-    # IMPORTANT: try these first (and avoid WEBEMBEDDED being primary)
     clients:
       - MWEB
       - WEB
       - ANDROID_VR
       - IOS
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO
