@@ -25,21 +25,16 @@ plugins:
 
     oauth:
       enabled: true
-      refreshToken: ${LAVALINK_YT_REFRESH_TOKEN}
+      refreshToken: "${LAVALINK_YT_REFRESH_TOKEN}"
 
-    allowSearch: true
-    allowDirectVideoIds: true
-    allowDirectPlaylistIds: true
-
+    # Prefer OAuth-capable clients first
     clients:
-      - TVHTML5EMBEDDED   # OAuth client (best choice)
-      - TV                # OAuth client (fallback)
-      - WEBEMBEDDED
+      - TVHTML5EMBEDDED
+      - TV
+      # (optional fallbacks)
       - WEB
-      - MWEB
+      - WEBEMBEDDED
       - IOS
-      - ANDROID
-      - ANDROIDEMBEDDED
 
 logging:
   level:

@@ -1,4 +1,15 @@
 services:
+  yt-cipher:
+    image: denoland/deno:alpine
+    container_name: yt-cipher
+    working_dir: /app
+    command: ["run", "-A", "https://raw.githubusercontent.com/lavalink-devs/yt-cipher/main/mod.ts"]
+    environment:
+      - YT_CIPHER_PASSWORD=${YTCIPHER_PASSWORD}
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+
   lavalink:
     image: ghcr.io/lavalink-devs/lavalink:4
     container_name: lavalink
@@ -9,6 +20,8 @@ services:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     env_file:
       - .env
+    depends_on:
+      - yt-cipher
 
   bot:
     build: .
