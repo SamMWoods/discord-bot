@@ -85,14 +85,32 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     let track = res?.tracks?.[0];
     let usedFallback = false;
 
-    // 2) If YouTube URL fails (common on VPS), fallback to SoundCloud search using the raw input
+    // 2) If YouTube URL failed, try ytsearch using the video id (more reliable than direct URL)
     if (!track && isUrl(input) && isYouTubeLink(input)) {
-      res = await player.search({ query: `scsearch:${raw}` }, interaction.user);
-      track = res?.tracks?.[0];
-      usedFallback = !!track;
+      const ytId = (() => {
+        try {
+          const u = new URL(input);
+          if (u.hostname === "youtu.be") return u.pathname.replace("/", "");
+          return u.searchParams.get("v") || "";
+        } catch {
+          return "";
+        }
+      })();
+
+      if (ytId) {
+        res = await player.search({ query: `ytsearch:${ytId}` }, interaction.user);
+        track = res?.tracks?.[0];
+      }
+
+      // 3) If still nothing, fallback to SoundCloud search using the user text (NOT the URL)
+      if (!track) {
+        res = await player.search({ query: `scsearch:${ytId || "lose my mind"}` }, interaction.user);
+        track = res?.tracks?.[0];
+        usedFallback = !!track;
+      }
     }
 
-    // 3) If ytsearch fails (YouTube blocked), fallback to SoundCloud search
+    // 4) If text query ytsearch fails, fallback to SoundCloud
     if (!track && primaryQuery.startsWith("ytsearch:")) {
       res = await player.search({ query: `scsearch:${input}` }, interaction.user);
       track = res?.tracks?.[0];
@@ -100,7 +118,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     if (!track) {
-      // Helpful logging for debugging on server
       console.log("[/play] No track found", {
         raw,
         input,
@@ -111,7 +128,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       });
 
       await interaction.editReply(
-        "No results found. (YouTube may be blocked on this server — try `scsearch:` or a SoundCloud URL.)"
+        "No results found from enabled sources on this server."
       );
       return;
     }
