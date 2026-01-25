@@ -25,18 +25,21 @@ plugins:
 
     oauth:
       enabled: true
-      refreshToken: "${LAVALINK_YT_REFRESH_TOKEN}"
+      refreshToken: ${LAVALINK_YT_REFRESH_TOKEN}
 
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
 
-    # Put OAuth-friendly clients first, and REMOVE ANDROID (it’s broken per your logs)
     clients:
-      - TVHTML5_SIMPLY_EMBEDDED_PLAYER
+      - TVHTML5EMBEDDED   # OAuth client (best choice)
+      - TV                # OAuth client (fallback)
+      - WEBEMBEDDED
       - WEB
-      - IOS
       - MWEB
+      - IOS
+      - ANDROID
+      - ANDROIDEMBEDDED
 
 logging:
   level:
