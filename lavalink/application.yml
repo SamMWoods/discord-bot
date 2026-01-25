@@ -23,19 +23,17 @@ plugins:
   youtube:
     enabled: true
 
-    # OAuth REQUIRED on VPS/datacenter IPs
     oauth:
       enabled: true
+      refreshToken: "${LAVALINK_YT_REFRESH_TOKEN}"
 
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
 
-    # OAuth-compatible clients FIRST
-    # (ANDROID is the most reliable)
+    # Put OAuth-friendly clients first, and REMOVE ANDROID (it’s broken per your logs)
     clients:
-      - TVHTML5EMBEDDED
-      - ANDROID
+      - TVHTML5_SIMPLY_EMBEDDED_PLAYER
       - WEB
       - IOS
       - MWEB
@@ -44,3 +42,4 @@ logging:
   level:
     root: INFO
     lavalink: INFO
+    dev.lavalink.youtube: DEBUG
