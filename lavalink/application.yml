@@ -4,6 +4,8 @@ server:
 lavalink:
   server:
     password: "youshallnotpass"
+
+    # Disable built-in YouTube, plugin handles it
     sources:
       youtube: false
       soundcloud: true
@@ -20,6 +22,8 @@ lavalink:
 plugins:
   youtube:
     enabled: true
+
+    # OAuth REQUIRED on VPS/datacenter IPs
     oauth:
       enabled: true
 
@@ -27,11 +31,13 @@ plugins:
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
 
+    # OAuth-compatible clients FIRST
+    # (ANDROID is the most reliable)
     clients:
-      - MWEB
+      - ANDROID
       - WEB
-      - ANDROID_VR
       - IOS
+      - MWEB
 
 logging:
   level:
