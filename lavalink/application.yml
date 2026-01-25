@@ -27,11 +27,18 @@ plugins:
       enabled: true
       refreshToken: "${LAVALINK_YT_REFRESH_TOKEN}"
 
+    # Use remote cipher (fixes "must find sig function" / signature breakages)
+    remoteCipher:
+      url: "https://cipher.kikkia.dev/"
+
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+
     # Prefer OAuth-capable clients first
     clients:
       - TVHTML5EMBEDDED
       - TV
-      # (optional fallbacks)
       - WEB
       - WEBEMBEDDED
       - IOS
