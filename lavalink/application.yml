@@ -24,5 +24,3 @@ plugins:
       - WEB
       - ANDROID_VR
       - IOS
-      # keep WEBEMBEDDED last or remove it entirely:
-      - WEBEMBEDDED
