@@ -2,23 +2,27 @@ server:
   port: 2333
 
 lavalink:
+  server:
+    password: "youshallnotpass"
+    sources:
+      youtube: false
+
   plugins:
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.16.0"
       repository: "https://maven.lavalink.dev/releases"
 
-  server:
-    password: "youshallnotpass"
-    sources:
-      # IMPORTANT: disable built-in youtube; plugin handles YouTube
-      youtube: false
-      soundcloud: true
-      bandcamp: true
-      twitch: true
-      vimeo: true
-      http: true
-      local: false
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
 
-logging:
-  level:
-    root: INFO
-    lavalink: INFO
+    # IMPORTANT: try these first (and avoid WEBEMBEDDED being primary)
+    clients:
+      - MWEB
+      - WEB
+      - ANDROID_VR
+      - IOS
+      # keep WEBEMBEDDED last or remove it entirely:
+      - WEBEMBEDDED
