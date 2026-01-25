@@ -32,10 +32,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  // ✅ correct methods
-  await player.stopPlaying();
+  // ✅ Stop playback safely
+  await player.stop();
 
-  // optional: fully leave VC
+  // ✅ Clear queue (if anything is left)
+  player.queue.clear();
+
+  // ✅ Leave voice & destroy player
   await player.disconnect();
   await player.destroy();
 
