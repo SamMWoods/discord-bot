@@ -9,6 +9,21 @@ export const data = new SlashCommandBuilder()
   .setName("skip")
   .setDescription("Skip the current song");
 
+function getQueueSize(player: any): number {
+  // Common shapes across lavalink-client / erela / shoukaku wrappers
+  if (!player) return 0;
+
+  // lavalink-client often has queue as an array-like or with "tracks"
+  if (typeof player.queue?.size === "number") return player.queue.size;
+  if (typeof player.queue?.length === "number") return player.queue.length;
+  if (typeof player.queue?.tracks?.length === "number") return player.queue.tracks.length;
+
+  // Some libs keep queue internally as "data" or similar
+  if (typeof player.queue?.data?.length === "number") return player.queue.data.length;
+
+  return 0;
+}
+
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
@@ -20,50 +35,42 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const member = interaction.member as GuildMember | null;
     const voiceChannel = member?.voice?.channel;
-
     if (!voiceChannel) {
       await interaction.editReply("Join a voice channel first.");
       return;
     }
 
     const player: any = lavalink.getPlayer(interaction.guildId);
-
     if (!player) {
       await interaction.editReply("Nothing is playing right now.");
       return;
     }
 
-    // Optional: only allow skip if user is in same VC as bot
+    // Optional: ensure same VC
     if (player.voiceChannelId && player.voiceChannelId !== voiceChannel.id) {
       await interaction.editReply("You need to be in the same voice channel as me to skip.");
       return;
     }
 
-    // Figure out queue size in a tolerant way (libs differ)
-    const queueSize =
-      player.queue?.size ??
-      player.queue?.length ??
-      player.queue?.tracks?.length ??
-      0;
+    const queueSize = getQueueSize(player);
 
-    // If there's something queued, skip to it
+    // If there is something queued, move forward
     if (queueSize > 0) {
-      await player.skip(); // lavalink-client: skips forward in queue
+      await player.skip(1); // explicit 1 helps some versions
       await interaction.editReply("⏭️ Skipped!");
       return;
     }
 
-    // Otherwise stop the current track cleanly
+    // No queue -> stop current track instead of calling skip()
     if (typeof player.stop === "function") {
       await player.stop();
-      await interaction.editReply("⏹️ Stopped (no more songs in queue).");
+      await interaction.editReply("⏭️ Skipped! *(queue empty, stopped current track)*");
       return;
     }
 
-    // Last resort fallback
     if (typeof player.destroy === "function") {
       await player.destroy();
-      await interaction.editReply("⏹️ Stopped (no more songs in queue).");
+      await interaction.editReply("⏭️ Skipped! *(queue empty, stopped & left VC)*");
       return;
     }
 
