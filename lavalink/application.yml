@@ -4,8 +4,6 @@ server:
 lavalink:
   server:
     password: "youshallnotpass"
-
-    # Disable built-in YouTube, plugin handles it
     sources:
       youtube: false
       soundcloud: true
@@ -16,7 +14,7 @@ lavalink:
       local: false
 
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.16.0"
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.0"
       repository: "https://maven.lavalink.dev/releases"
 
 plugins:
@@ -27,7 +25,6 @@ plugins:
       enabled: true
       refreshToken: "${LAVALINK_YT_REFRESH_TOKEN}"
 
-    # Use remote cipher (fixes "must find sig function" / signature breakages)
     remoteCipher:
       url: "https://cipher.kikkia.dev/"
 
@@ -35,13 +32,10 @@ plugins:
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
 
-    # Prefer OAuth-capable clients first
     clients:
-      - TVHTML5EMBEDDED
       - TV
       - WEB
       - WEBEMBEDDED
-      - IOS
 
 logging:
   level:
