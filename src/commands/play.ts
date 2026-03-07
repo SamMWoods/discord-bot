@@ -194,7 +194,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       volume: 80,
     });
 
-    await player.connect();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     let res = await player.search({ query: primaryQuery }, interaction.user);
     let track = res?.tracks?.[0];

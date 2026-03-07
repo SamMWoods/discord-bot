@@ -1,5 +1,5 @@
 import { LavalinkManager } from "lavalink-client";
-import { client } from "./index"; // <- imports your discord client
+import { client } from "./index";
 import { config } from "./config";
 
 export const lavalink = new LavalinkManager({
@@ -14,8 +14,9 @@ export const lavalink = new LavalinkManager({
   ],
 
   sendToShard: (guildId, payload) => {
-    // Discord.js v14 voice updates -> Lavalink
-    client.guilds.cache.get(guildId)?.shard?.send(payload);
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return;
+    guild.shard?.send(payload);
   },
 });
 
