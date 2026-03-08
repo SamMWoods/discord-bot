@@ -217,12 +217,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       volume: 80,
     });
 
-
-    await player.connect();
-    await player.changeVoiceState({
-      voiceChannelId: voiceChannel.id,
-      selfDeaf: true,
-    });
+    if (!player.connected) {
+      await player.connect();
+    }
 
     let res = await player.search({ query: primaryQuery }, interaction.user);
     let track = res?.tracks?.[0];
@@ -254,14 +251,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return;
     }
 
-    const wasPlaying = player.playing;
+    const shouldStart = !player.playing && !player.paused;
 
     await player.queue.add(track);
 
     const badge = sourceBadge(sourceUsed);
     const suffix = badge ? `\n${badge}` : "";
 
-    if (!wasPlaying) {
+    if (shouldStart) {
       await player.play();
       await interaction.editReply(`▶️ Now playing: **${track.info.title}**${suffix}`);
     } else {

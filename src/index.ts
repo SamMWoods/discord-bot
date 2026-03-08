@@ -26,7 +26,6 @@ client.on("guildCreate", async (guild) => {
 });
 
 client.on("raw", (d) => {
-  // @ts-ignore
   lavalink.sendRawData(d);
 });
 

@@ -40,8 +40,3 @@ lavalink.nodeManager.on("connect", (node) => {
 lavalink.nodeManager.on("disconnect", (node, reason) => {
   console.warn(`[Lavalink] Node ${node.id} disconnected:`, reason);
 });
-
-// Forward Discord raw gateway events to Lavalink
-client.on("raw", (d) => {
-  lavalink.sendRawData(d);
-});
