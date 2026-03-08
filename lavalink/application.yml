@@ -33,7 +33,21 @@ plugins:
     allowDirectPlaylistIds: true
 
     clients:
+      - WEB
       - TV
+
+    clientOptions:
+      WEB:
+        playback: false
+        videoLoading: true
+        searching: true
+        playlistLoading: true
+
+      TV:
+        playback: true
+        videoLoading: false
+        searching: false
+        playlistLoading: false
 
 logging:
   level:

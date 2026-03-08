@@ -98,6 +98,28 @@ async function getSpotifyOEmbedTitle(
   }
 }
 
+async function getYouTubeOEmbedTitle(
+  youtubeUrl: string
+): Promise<string | null> {
+  try {
+    const oembed = `https://www.youtube.com/oembed?url=${encodeURIComponent(
+      youtubeUrl
+    )}&format=json`;
+
+    const res = await fetch(oembed, {
+      headers: { accept: "application/json" },
+    });
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as { title?: string };
+    const title = data?.title?.trim();
+    return title ? title : null;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeSpotifyTitleForSearch(oembedTitle: string) {
   const parts = oembedTitle
     .split(" - ")
@@ -144,22 +166,32 @@ function sourceBadge(source: SourceUsed) {
 }
 
 const spotifyTitleCache = new Map<string, { title: string; expires: number }>();
-const SPOTIFY_CACHE_TTL_MS = 1000 * 60 * 60;
+const youtubeTitleCache = new Map<string, { title: string; expires: number }>();
+const CACHE_TTL_MS = 1000 * 60 * 60;
 
-function getCachedSpotifyTitle(url: string) {
-  const entry = spotifyTitleCache.get(url);
+function getCachedTitle(
+  cache: Map<string, { title: string; expires: number }>,
+  key: string
+) {
+  const entry = cache.get(key);
   if (!entry) return null;
+
   if (Date.now() > entry.expires) {
-    spotifyTitleCache.delete(url);
+    cache.delete(key);
     return null;
   }
+
   return entry.title;
 }
 
-function setCachedSpotifyTitle(url: string, title: string) {
-  spotifyTitleCache.set(url, {
+function setCachedTitle(
+  cache: Map<string, { title: string; expires: number }>,
+  key: string,
+  title: string
+) {
+  cache.set(key, {
     title,
-    expires: Date.now() + SPOTIFY_CACHE_TTL_MS,
+    expires: Date.now() + CACHE_TTL_MS,
   });
 }
 
@@ -180,13 +212,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     let sourceUsed: SourceUsed = isUrl(input) ? "unknown" : "youtube";
     let spotifyResolvedTitle: string | null = null;
+    let youtubeResolvedTitle: string | null = null;
 
     if (isUrl(raw) && isSpotifyLink(raw)) {
-      const cached = getCachedSpotifyTitle(raw);
+      const cached = getCachedTitle(spotifyTitleCache, raw);
       spotifyResolvedTitle = cached ?? (await getSpotifyOEmbedTitle(raw));
 
       if (spotifyResolvedTitle && !cached) {
-        setCachedSpotifyTitle(raw, spotifyResolvedTitle);
+        setCachedTitle(spotifyTitleCache, raw, spotifyResolvedTitle);
       }
 
       if (spotifyResolvedTitle) {
@@ -196,8 +229,47 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
     }
 
+    // Important: NEVER pass raw YouTube URLs to Lavalink in your current setup.
+    // Resolve title first, then use ytsearch:title
+    if (isUrl(input) && isYouTubeLink(input)) {
+      const cached = getCachedTitle(youtubeTitleCache, input);
+      youtubeResolvedTitle = cached ?? (await getYouTubeOEmbedTitle(input));
+
+      if (youtubeResolvedTitle && !cached) {
+        setCachedTitle(youtubeTitleCache, input, youtubeResolvedTitle);
+      }
+    }
+
     if (!isUrl(input)) {
       input = cleanSearchQuery(input);
+    }
+
+    let primaryQuery = "";
+    const fallbackQueries: string[] = [];
+
+    if (isUrl(input) && isYouTubeLink(input)) {
+      const ytId = getYouTubeId(input);
+
+      if (youtubeResolvedTitle) {
+        primaryQuery = `ytsearch:${cleanSearchQuery(youtubeResolvedTitle)} audio`;
+        fallbackQueries.push(`ytsearch:${cleanSearchQuery(youtubeResolvedTitle)}`);
+      } else if (ytId) {
+        primaryQuery = `ytsearch:${ytId}`;
+      } else {
+        primaryQuery = `ytsearch:${cleanSearchQuery(raw)}`;
+      }
+
+      if (ytId) {
+        fallbackQueries.push(`ytsearch:${ytId}`);
+      }
+
+      fallbackQueries.push(`ytsearch:${cleanSearchQuery(raw)}`);
+      sourceUsed = "youtube";
+    } else if (isUrl(input)) {
+      primaryQuery = input;
+    } else {
+      primaryQuery = `ytsearch:${input} audio`;
+      fallbackQueries.push(`ytsearch:${input}`);
     }
 
     const player = lavalink.createPlayer({
@@ -215,38 +287,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       await player.connect();
     }
 
-    let res: any = null;
-    let track: any = null;
-    let primaryQuery = "";
-    let fallbackQueries: string[] = [];
+    let res: any = await player.search({ query: primaryQuery }, interaction.user);
+    let track = res?.tracks?.[0];
 
-    if (isUrl(input) && isYouTubeLink(input)) {
-      const ytId = getYouTubeId(input);
-
-      // Best order for YouTube links:
-      // 1) Try direct URL
-      // 2) Try ytsearch with the video ID
-      // 3) Try ytsearch with the cleaned raw URL text as a last resort
-      primaryQuery = input;
-
-      fallbackQueries = [
-        ...(ytId ? [`ytsearch:${ytId}`] : []),
-        `ytsearch:${cleanSearchQuery(raw)}`,
-      ];
-
-      sourceUsed = "youtube";
-    } else if (isUrl(input)) {
-      primaryQuery = input;
-    } else {
-      primaryQuery = `ytsearch:${input} audio`;
-      fallbackQueries = [`ytsearch:${input}`];
-    }
-
-    // Primary attempt
-    res = await player.search({ query: primaryQuery }, interaction.user);
-    track = res?.tracks?.[0];
-
-    // Fallback attempts
     if (!track) {
       for (const query of fallbackQueries) {
         res = await player.search({ query }, interaction.user);
@@ -255,14 +298,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
     }
 
-    // SoundCloud fallback only for text-based queries / Spotify converted text
     if (!track && !isUrl(input)) {
       res = await player.search({ query: `scsearch:${input}` }, interaction.user);
       track = res?.tracks?.[0];
       if (track) sourceUsed = "soundcloud";
     }
 
-    // Final emergency fallback for Spotify links where oEmbed failed
     if (!track && isSpotifyLink(raw) && !spotifyResolvedTitle) {
       res = await player.search({ query: `ytsearch:${raw}` }, interaction.user);
       track = res?.tracks?.[0];
@@ -276,6 +317,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         primaryQuery,
         fallbackQueries,
         spotifyResolvedTitle,
+        youtubeResolvedTitle,
         loadType: res?.loadType,
         tracks: res?.tracks?.length,
         exception: res?.exception,
