@@ -34,20 +34,13 @@ plugins:
 
     clients:
       - WEB
-      - TV
 
     clientOptions:
       WEB:
-        playback: false
+        playback: true
         videoLoading: true
         searching: true
         playlistLoading: true
-
-      TV:
-        playback: true
-        videoLoading: false
-        searching: false
-        playlistLoading: false
 
 logging:
   level:
