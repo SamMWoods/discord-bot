@@ -30,6 +30,7 @@ plugins:
     clients:
       - WEB
       - WEBEMBEDDED
+      - TVHTML5_SIMPLY
 
 logging:
   level:
