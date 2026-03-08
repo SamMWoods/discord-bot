@@ -76,7 +76,9 @@ function getYouTubeId(str: string) {
   }
 }
 
-async function getSpotifyOEmbedTitle(spotifyUrl: string): Promise<string | null> {
+async function getSpotifyOEmbedTitle(
+  spotifyUrl: string
+): Promise<string | null> {
   try {
     const oembed = `https://open.spotify.com/oembed?url=${encodeURIComponent(
       spotifyUrl
@@ -198,14 +200,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       input = cleanSearchQuery(input);
     }
 
-    let primaryQuery: string;
-
-    if (isUrl(input)) {
-      primaryQuery = input;
-    } else {
-      primaryQuery = `ytsearch:${input} audio`;
-    }
-    
     const player = lavalink.createPlayer({
       guildId: interaction.guildId,
       voiceChannelId: voiceChannel.id,
@@ -220,15 +214,55 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     if (!player.connected) {
       await player.connect();
     }
-    let res = await player.search({ query: primaryQuery }, interaction.user);
-    let track = res?.tracks?.[0];
 
+    let res: any = null;
+    let track: any = null;
+    let primaryQuery = "";
+    let fallbackQueries: string[] = [];
+
+    if (isUrl(input) && isYouTubeLink(input)) {
+      const ytId = getYouTubeId(input);
+
+      // Best order for YouTube links:
+      // 1) Try direct URL
+      // 2) Try ytsearch with the video ID
+      // 3) Try ytsearch with the cleaned raw URL text as a last resort
+      primaryQuery = input;
+
+      fallbackQueries = [
+        ...(ytId ? [`ytsearch:${ytId}`] : []),
+        `ytsearch:${cleanSearchQuery(raw)}`,
+      ];
+
+      sourceUsed = "youtube";
+    } else if (isUrl(input)) {
+      primaryQuery = input;
+    } else {
+      primaryQuery = `ytsearch:${input} audio`;
+      fallbackQueries = [`ytsearch:${input}`];
+    }
+
+    // Primary attempt
+    res = await player.search({ query: primaryQuery }, interaction.user);
+    track = res?.tracks?.[0];
+
+    // Fallback attempts
+    if (!track) {
+      for (const query of fallbackQueries) {
+        res = await player.search({ query }, interaction.user);
+        track = res?.tracks?.[0];
+        if (track) break;
+      }
+    }
+
+    // SoundCloud fallback only for text-based queries / Spotify converted text
     if (!track && !isUrl(input)) {
       res = await player.search({ query: `scsearch:${input}` }, interaction.user);
       track = res?.tracks?.[0];
       if (track) sourceUsed = "soundcloud";
     }
 
+    // Final emergency fallback for Spotify links where oEmbed failed
     if (!track && isSpotifyLink(raw) && !spotifyResolvedTitle) {
       res = await player.search({ query: `ytsearch:${raw}` }, interaction.user);
       track = res?.tracks?.[0];
@@ -240,17 +274,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         raw,
         input,
         primaryQuery,
+        fallbackQueries,
         spotifyResolvedTitle,
-        loadType: (res as any)?.loadType,
+        loadType: res?.loadType,
         tracks: res?.tracks?.length,
-        exception: (res as any)?.exception,
+        exception: res?.exception,
       });
 
       await interaction.editReply("No results found from enabled sources on this server.");
       return;
     }
 
-    const shouldStart = !player.playing && !player.paused && player.queue.tracks.length === 0;
+    const shouldStart =
+      !player.playing && !player.paused && player.queue.tracks.length === 0;
 
     await player.queue.add(track);
 
