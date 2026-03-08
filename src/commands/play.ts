@@ -217,10 +217,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       volume: 80,
     });
 
+    player.voiceChannelId = voiceChannel.id;
+    player.textChannelId = interaction.channelId;
+
     if (!player.connected) {
       await player.connect();
     }
-
     let res = await player.search({ query: primaryQuery }, interaction.user);
     let track = res?.tracks?.[0];
 
@@ -251,7 +253,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return;
     }
 
-    const shouldStart = !player.playing && !player.paused;
+    const shouldStart = !player.playing && !player.paused && player.queue.tracks.length === 0;
 
     await player.queue.add(track);
 

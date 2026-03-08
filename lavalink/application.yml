@@ -34,8 +34,6 @@ plugins:
 
     clients:
       - TV
-      - WEB
-      - WEBEMBEDDED
 
 logging:
   level:
