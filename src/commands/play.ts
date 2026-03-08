@@ -24,13 +24,11 @@ function normalizeYouTubeUrl(input: string) {
 
     if (!isYouTube) return input;
 
-    // youtu.be/<id>
     if (host === "youtu.be") {
       const id = url.pathname.replace("/", "");
       return id ? `https://www.youtube.com/watch?v=${id}` : input;
     }
 
-    // youtube.com/watch?v=<id>
     const v = url.searchParams.get("v");
     if (v) return `https://www.youtube.com/watch?v=${v}`;
 
@@ -62,13 +60,22 @@ function isSpotifyLink(str: string) {
   );
 }
 
-/**
- * Uses Spotify's oEmbed endpoint to resolve a Spotify URL to a human-friendly title.
- * Track oEmbed titles are usually: "Track Name - Artist Name"
- *
- * Requires Node 18+ for global fetch.
- * If you're on Node <18, install node-fetch and import it.
- */
+function getYouTubeId(str: string) {
+  try {
+    const u = new URL(str);
+    const host = u.hostname.toLowerCase();
+
+    if (host === "youtu.be") return u.pathname.replace("/", "");
+    if (host.includes("youtube.com") || host.includes("music.youtube.com")) {
+      return u.searchParams.get("v") || "";
+    }
+
+    return "";
+  } catch {
+    return "";
+  }
+}
+
 async function getSpotifyOEmbedTitle(spotifyUrl: string): Promise<string | null> {
   try {
     const oembed = `https://open.spotify.com/oembed?url=${encodeURIComponent(
@@ -89,11 +96,6 @@ async function getSpotifyOEmbedTitle(spotifyUrl: string): Promise<string | null>
   }
 }
 
-/**
- * Optional: improves hit rate on YouTube a bit.
- * Spotify track titles come like "Song - Artist".
- * YouTube is often better with "Artist - Song".
- */
 function normalizeSpotifyTitleForSearch(oembedTitle: string) {
   const parts = oembedTitle
     .split(" - ")
@@ -109,14 +111,10 @@ function normalizeSpotifyTitleForSearch(oembedTitle: string) {
   return oembedTitle;
 }
 
-/**
- * Removes noisy tokens that often hurt YouTube matching.
- * Adds "audio" when searching to prefer clean uploads.
- */
 function cleanSearchQuery(input: string) {
   return input
-    .replace(/\(.*?\)/g, " ") // (Remastered 2019)
-    .replace(/\[.*?\]/g, " ") // [Official Video]
+    .replace(/\(.*?\)/g, " ")
+    .replace(/\[.*?\]/g, " ")
     .replace(/official video/gi, " ")
     .replace(/official music video/gi, " ")
     .replace(/lyrics?/gi, " ")
@@ -143,12 +141,8 @@ function sourceBadge(source: SourceUsed) {
   }
 }
 
-/**
- * Simple in-memory cache for Spotify oEmbed titles.
- * Note: resets when your bot process restarts.
- */
 const spotifyTitleCache = new Map<string, { title: string; expires: number }>();
-const SPOTIFY_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+const SPOTIFY_CACHE_TTL_MS = 1000 * 60 * 60;
 
 function getCachedSpotifyTitle(url: string) {
   const entry = spotifyTitleCache.get(url);
@@ -180,14 +174,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     const raw = interaction.options.getString("url", true).trim();
-
-    // Normalize YouTube URLs early (if it is a YouTube url)
     let input = isUrl(raw) ? normalizeYouTubeUrl(raw) : raw;
 
     let sourceUsed: SourceUsed = isUrl(input) ? "unknown" : "youtube";
     let spotifyResolvedTitle: string | null = null;
 
-    // If Spotify link, convert to a YouTube search query by resolving title from oEmbed
     if (isUrl(raw) && isSpotifyLink(raw)) {
       const cached = getCachedSpotifyTitle(raw);
       spotifyResolvedTitle = cached ?? (await getSpotifyOEmbedTitle(raw));
@@ -203,15 +194,20 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
     }
 
-    // If it's a text query, clean it for better matching too
     if (!isUrl(input)) {
       input = cleanSearchQuery(input);
     }
 
-    // Default behavior:
-    // - If URL: use it directly
-    // - If text: try YouTube search first (nice UX), then fallback to SoundCloud if it fails
-    const primaryQuery = isUrl(input) ? input : `ytsearch:${input} audio`;
+    let primaryQuery: string;
+
+    if (isUrl(input) && isYouTubeLink(input)) {
+      const ytId = getYouTubeId(input);
+      primaryQuery = ytId ? `ytsearch:${ytId}` : input;
+    } else if (isUrl(input)) {
+      primaryQuery = input;
+    } else {
+      primaryQuery = `ytsearch:${input} audio`;
+    }
 
     const player = lavalink.createPlayer({
       guildId: interaction.guildId,
@@ -221,39 +217,22 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       volume: 80,
     });
 
-    await player.connect();
 
-    // 1) Try primary
+    await player.connect();
+    await player.changeVoiceState({
+      voiceChannelId: voiceChannel.id,
+      selfDeaf: true,
+    });
+
     let res = await player.search({ query: primaryQuery }, interaction.user);
     let track = res?.tracks?.[0];
 
-    // 2) If YouTube URL failed, try ytsearch using the video id (more reliable than direct URL)
-    if (!track && isUrl(input) && isYouTubeLink(input)) {
-      const ytId = (() => {
-        try {
-          const u = new URL(input);
-          if (u.hostname === "youtu.be") return u.pathname.replace("/", "");
-          return u.searchParams.get("v") || "";
-        } catch {
-          return "";
-        }
-      })();
-
-      if (ytId) {
-        res = await player.search({ query: `ytsearch:${ytId}` }, interaction.user);
-        track = res?.tracks?.[0];
-      }
-    }
-
-    // 3) If text query ytsearch fails, fallback to SoundCloud
     if (!track && !isUrl(input)) {
       res = await player.search({ query: `scsearch:${input}` }, interaction.user);
       track = res?.tracks?.[0];
       if (track) sourceUsed = "soundcloud";
     }
 
-    // 4) If still nothing and we started from Spotify but oEmbed failed, last-ditch try:
-    //    search YouTube using the Spotify URL token (sometimes users paste weird variants)
     if (!track && isSpotifyLink(raw) && !spotifyResolvedTitle) {
       res = await player.search({ query: `ytsearch:${raw}` }, interaction.user);
       track = res?.tracks?.[0];

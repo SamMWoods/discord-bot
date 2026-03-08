@@ -14,6 +14,7 @@ export const client = new Client({
 
 client.once(Events.ClientReady, async () => {
   console.log("Discord bot is ready! 🤖");
+  console.log(`Logged in as ${client.user?.tag}`);
   await lavalink.init({
     id: client.user!.id,
     username: client.user!.username,

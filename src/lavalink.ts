@@ -1,5 +1,5 @@
 import { LavalinkManager } from "lavalink-client";
-import { client } from "./index"; // <- imports your discord client
+import { client } from "./index";
 import { config } from "./config";
 
 export const lavalink = new LavalinkManager({
@@ -14,8 +14,18 @@ export const lavalink = new LavalinkManager({
   ],
 
   sendToShard: (guildId, payload) => {
-    // Discord.js v14 voice updates -> Lavalink
     client.guilds.cache.get(guildId)?.shard?.send(payload);
+  },
+
+  autoSkip: true,
+  playerOptions: {
+    clientBasedPositionUpdateInterval: 150,
+    defaultSearchPlatform: "ytsearch",
+    volumeDecrementer: 0.75,
+    onDisconnect: {
+      autoReconnect: true,
+      destroyPlayer: false,
+    },
   },
 });
 
@@ -29,4 +39,9 @@ lavalink.nodeManager.on("connect", (node) => {
 
 lavalink.nodeManager.on("disconnect", (node, reason) => {
   console.warn(`[Lavalink] Node ${node.id} disconnected:`, reason);
+});
+
+// Forward Discord raw gateway events to Lavalink
+client.on("raw", (d) => {
+  lavalink.sendRawData(d);
 });
