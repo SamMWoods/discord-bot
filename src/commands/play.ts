@@ -200,15 +200,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     let primaryQuery: string;
 
-    if (isUrl(input) && isYouTubeLink(input)) {
-      const ytId = getYouTubeId(input);
-      primaryQuery = ytId ? `ytsearch:${ytId}` : input;
-    } else if (isUrl(input)) {
+    if (isUrl(input)) {
       primaryQuery = input;
     } else {
       primaryQuery = `ytsearch:${input} audio`;
     }
-
+    
     const player = lavalink.createPlayer({
       guildId: interaction.guildId,
       voiceChannelId: voiceChannel.id,
