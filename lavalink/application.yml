@@ -20,27 +20,16 @@ lavalink:
 plugins:
   youtube:
     enabled: true
-
-    oauth:
-      enabled: true
-      refreshToken: "${LAVALINK_YT_REFRESH_TOKEN}"
-
-    remoteCipher:
-      url: "https://cipher.kikkia.dev/"
-
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
 
+    remoteCipher:
+      url: "https://cipher.kikkia.dev/"
+
     clients:
       - WEB
-
-    clientOptions:
-      WEB:
-        playback: true
-        videoLoading: true
-        searching: true
-        playlistLoading: true
+      - WEBEMBEDDED
 
 logging:
   level:
