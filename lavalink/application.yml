@@ -28,12 +28,10 @@ plugins:
       url: "https://cipher.kikkia.dev/"
 
     clients:
+      - MUSIC
+      - ANDROID_VR
       - WEB
       - WEBEMBEDDED
-      - TVHTML5_SIMPLY
-      
-    oauth:
-      enabled: true
 
 logging:
   level:
