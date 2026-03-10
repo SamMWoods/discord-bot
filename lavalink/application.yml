@@ -4,6 +4,7 @@ server:
 lavalink:
   server:
     password: "youshallnotpass"
+
     sources:
       youtube: false
       soundcloud: true
@@ -20,17 +21,18 @@ lavalink:
 plugins:
   youtube:
     enabled: true
-    allowSearch: true
-    allowDirectVideoIds: true
-    allowDirectPlaylistIds: true
-
-    remoteCipher:
-      url: "https://cipher.kikkia.dev/"
 
     oauth:
       enabled: true
       refreshToken: "${LAVALINK_YT_REFRESH_TOKEN}"
       skipInitialization: true
+
+    remoteCipher:
+      url: "https://cipher.kikkia.dev/"
+
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
 
     clients:
       - TV
