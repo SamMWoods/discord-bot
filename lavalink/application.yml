@@ -26,6 +26,12 @@ plugins:
 
     remoteCipher:
       url: "https://cipher.kikkia.dev/"
+      password: "${YTCIPHER_PASSWORD}"
+
+    oauth:
+      enabled: true
+      refreshToken: "${LAVALINK_YT_REFRESH_TOKEN}"
+      skipInitialization: true
 
     clients:
       - MUSIC
