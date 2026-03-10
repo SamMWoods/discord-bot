@@ -34,10 +34,10 @@ plugins:
 
     clients:
       - TV
-      - MUSIC
+      - TVHTML5_SIMPLY
       - WEB
       - MWEB
-      - TVHTML5_SIMPLY
+      - MUSIC
 
 logging:
   level:
