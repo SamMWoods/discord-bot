@@ -26,7 +26,6 @@ plugins:
 
     remoteCipher:
       url: "https://cipher.kikkia.dev/"
-      password: "${YTCIPHER_PASSWORD}"
 
     oauth:
       enabled: true
@@ -34,13 +33,14 @@ plugins:
       skipInitialization: true
 
     clients:
+      - TV
       - MUSIC
-      - ANDROID_VR
       - WEB
-      - WEBEMBEDDED
+      - MWEB
+      - TVHTML5_SIMPLY
 
 logging:
   level:
     root: INFO
     lavalink: INFO
-    dev.lavalink.youtube: DEBUG
+    dev.lavalink.youtube: INFO
